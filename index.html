@@ -1306,6 +1306,12 @@ button, .card { font-family: inherit; }
     var y = (-v.y * 0.5 + 0.5) * view.clientHeight;
     node.style.display = "block";
     node.style.transform = "translate(" + x + "px," + y + "px) translate(-50%, -130%)";
+    var box = node.getBoundingClientRect();
+    var pad = 8;
+    var viewW = view.clientWidth;
+    if (box.right > viewW - pad) x -= box.right - (viewW - pad);
+    if (box.left < pad) x += pad - box.left;
+    node.style.transform = "translate(" + x + "px," + y + "px) translate(-50%, -130%)";
   }
 
   /* ---------- three ---------- */
@@ -1589,7 +1595,7 @@ button, .card { font-family: inherit; }
     scene.add(tree);
 
     dog = spriteBillboard(textures.dogIdle, 3.25);
-    dog.position.set(4.15, 1.72, -14.35);
+    dog.position.set(3.45, 1.72, -14.35);
     dog.material.depthWrite = true;
     scene.add(dog);
 
@@ -1598,7 +1604,7 @@ button, .card { font-family: inherit; }
     scene.add(pitcher);
 
     batter = spriteBillboard(textures.duke, 3.75);
-    batter.position.set(-1.55, 1.88, 2.15);
+    batter.position.set(-0.95, 1.88, 2.15);
     batter.renderOrder = 2;
     scene.add(batter);
 
@@ -1645,9 +1651,9 @@ button, .card { font-family: inherit; }
       scene.add(m);
       return m;
     }
-    blob(-1.55, 2.15, 1.8, 1.1);
+    blob(-0.95, 2.15, 1.8, 1.1);
     blob(0.85, -5.2, 1.3, 0.8);
-    blob(4.15, -14.2, 2.4, 1.1);
+    blob(3.45, -14.2, 2.4, 1.1);
 
     hemi = new THREE.HemisphereLight(0xfff1cc, 0xc98a4b, 0.72);
     scene.add(hemi);
@@ -1714,8 +1720,10 @@ button, .card { font-family: inherit; }
   function frameCamera(aspect, pos, look) {
     if (aspect < 1) {
       var tall = clamp((1 / aspect - 1.4) / 1.1, 0, 1);
-      pos.set(0.15, 4.35 + tall * 0.45, 11.6 + tall * 0.5);
-      look.set(-0.15, 1.85 + tall * 0.2, -5.4);
+      // Bias the frame left just enough that the cocked bat clears the edge
+      // while Biscuit stays on the right.
+      pos.set(0.02, 4.28 + tall * 0.4, 11.95 + tall * 0.4);
+      look.set(-0.28, 1.78 + tall * 0.15, -5.5);
     } else {
       var wide = clamp((aspect - 1.3) / 1.1, 0, 1);
       pos.set(5.6 + wide * 1.5, 3.45, 11.4);
@@ -1803,7 +1811,7 @@ button, .card { font-family: inherit; }
     } else {
       resizeSprite(dog, textures.dogIdle, 3.25);
       dog.position.y = 1.72;
-      dog.position.x = 4.15;
+      dog.position.x = 3.45;
     }
   }
 
@@ -2180,7 +2188,7 @@ button, .card { font-family: inherit; }
   function pickBonus(end, feet) {
     var list = [];
     if (end.x > 3.0) list.push({ type: "dog", dx: -1 });
-    else if (end.x > 2.0) list.push({ type: "dog", dx: Math.abs(end.x - 4.15) });
+    else if (end.x > 2.0) list.push({ type: "dog", dx: Math.abs(end.x - 3.45) });
     if (end.x < -1.6 && feet < 520) list.push({ type: "tree", dx: Math.abs(end.x + 5.2) });
     for (var i = 0; i < windows.length; i++) {
       var w = windows[i];
@@ -2562,7 +2570,7 @@ button, .card { font-family: inherit; }
     }
     if (dog && state.dogTimer <= 0) {
       dog.position.y = 1.72 + Math.sin(state.real * 1.7) * 0.04;
-      dog.position.x = 4.15;
+      dog.position.x = 3.45;
     }
     for (var w = 0; w < windows.length; w++) {
       var win = windows[w];
