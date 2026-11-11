@@ -2385,11 +2385,13 @@ button, .card { font-family: inherit; }
     var sin = Math.sin(tilt);
     var bwFromW = (safeW - 10) / (peak * (cos + sin / aspect));
     var bwFromH = (safeH - 10) / (peak * (sin + cos / aspect));
-    var bw = Math.min(bwFromW, bwFromH) * (bonk.big ? 0.94 : 0.82);
+    // About 58% of the previous pop. Big hits stay a little larger, still under the old size.
+    var bw = Math.min(bwFromW, bwFromH) * (bonk.big ? 0.545 : 0.476);
     var bh = bw / aspect;
     var ndc = bonk.anchor.clone().project(camera);
     var sx = (ndc.x * 0.5 + 0.5) * w;
     var sy = (1 - (ndc.y * 0.5 + 0.5)) * h;
+    sy -= bh * 0.85;
     var visW = bw * peak;
     var visH = bh * peak;
     var halfW = (Math.abs(visW * cos) + Math.abs(visH * sin)) * 0.5;
