@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-"""Cut the painted bat out of each stance and record the hand pivot.
+"""Pose data for the bat swing. Does not rewrite the kid paintings.
 
-Uses only the existing painted pixels in art/char_*_stance.png. The barrel is
-the light wood that sticks into empty space; the grip and knob continue that
-same thin axis. Shirt and skin colors that happen to be tan are kept because
-they sit off the bat's axis. Output is PNG (no WebP):
+art/char_<id>_batless.png are painted source files (ComfyUI). Running this
+script leaves those PNGs alone. Hand pivots and the cocked-bat angle live in
+art/bat_poses.json, which the game reads.
 
-  art/char_<id>_batless.png
-  art/bat_poses.json
+  python3 tools/make_batless_stances.py
+      prints the pose file and does not write images
 
-Run from the repo root: python3 tools/make_batless_stances.py
+  python3 tools/make_batless_stances.py --measure-bat
+      refreshes only the art/bat.png grip block inside bat_poses.json
 """
 from __future__ import annotations
 
@@ -487,15 +487,21 @@ def bat_geometry(path: Path):
 
 
 def main():
-    poses = {"bat": bat_geometry(ART / "bat.png"), "kids": {}}
+    import sys
+    poses_path = ART / "bat_poses.json"
+    print("Painted batless stances are the source of truth:")
     for kid in IDS:
-        out, meta = remove_one(ART / f"char_{kid}_stance.png")
-        dest = ART / f"char_{kid}_batless.png"
-        Image.fromarray(out).save(dest, "PNG")
-        poses["kids"][kid] = meta
-        print(f"{kid:8} cleared {meta['cleared']:5d}  pivot ({meta['u']:.3f},{meta['v']:.3f})  len {meta['length_px']}")
-    (ART / "bat_poses.json").write_text(json.dumps(poses, indent=2) + "\n")
-    print("wrote", ART / "bat_poses.json")
+        png = ART / f"char_{kid}_batless.png"
+        print(f"  {png.name:28} {'ok' if png.is_file() else 'MISSING'}")
+    print("This script does not overwrite them.")
+    if "--measure-bat" not in sys.argv:
+        print("Pose pivots stay in", poses_path)
+        return
+    poses = json.loads(poses_path.read_text())
+    poses["bat"] = bat_geometry(ART / "bat.png")
+    poses["painted_batless"] = True
+    poses_path.write_text(json.dumps(poses, indent=2) + "\n")
+    print("refreshed bat.png grip in", poses_path)
 
 
 if __name__ == "__main__":

@@ -1040,6 +1040,28 @@ button, .card { font-family: inherit; }
     yip(t);
     yip(t + 0.16);
   }
+  function sfxHappyBark(which) {
+    if (!audio.ctx || audio.muted) return;
+    var t = audio.ctx.currentTime;
+    var base = which === "emma" ? 150 : 230;
+    try {
+      var o = audio.ctx.createOscillator();
+      var g = audio.ctx.createGain();
+      var f = audio.ctx.createBiquadFilter();
+      o.type = "triangle";
+      o.frequency.setValueAtTime(base, t);
+      o.frequency.exponentialRampToValueAtTime(base * 0.62, t + 0.07);
+      f.type = "bandpass";
+      f.frequency.value = 860;
+      f.Q.value = 0.55;
+      envGain(t, g, 0.055, 0.08);
+      o.connect(f);
+      f.connect(g);
+      g.connect(audio.sfxGain);
+      o.start(t);
+      o.stop(t + 0.1);
+    } catch (e) {}
+  }
   function sfxLand() {
     if (!audio.ctx) return;
     noiseBurst(audio.ctx.currentTime, 0.16, 0.22, "lowpass", 420, 0.7);
@@ -1683,6 +1705,42 @@ button, .card { font-family: inherit; }
     dog.material.depthWrite = true;
     scene.add(dog);
 
+    var yardSpec = [
+      { id: "stormy", h: 2.55, pad: 17 / 731, keys: ["stormy1", "stormy2", "stormy3"], peek: "stormyPeek" },
+      { id: "emma", h: 2.8, pad: 16 / 826, keys: ["emma1", "emma2", "emma3"], peek: "emmaPeek" }
+    ];
+    yardRunners = [];
+    for (var yi = 0; yi < yardSpec.length; yi++) {
+      var spec = yardSpec[yi];
+      var ys = spriteBillboard(textures[spec.keys[0]], spec.h);
+      ys.visible = false;
+      ys.material.depthWrite = true;
+      ys.renderOrder = 1;
+      scene.add(ys);
+      var frames = [];
+      var flips = [];
+      for (var yk = 0; yk < spec.keys.length; yk++) {
+        frames.push(textures[spec.keys[yk]]);
+        flips.push(mirrorMap(textures[spec.keys[yk]]));
+      }
+      yardRunners.push({
+        spec: spec,
+        sprite: ys,
+        frames: frames,
+        flips: flips,
+        peek: textures[spec.peek],
+        mode: "off",
+        dir: 1,
+        x: 0,
+        speed: 6,
+        stopX: 12,
+        frameT: 0,
+        dustT: 0,
+        t: 0,
+        dur: 1.6
+      });
+    }
+
     pitcher = spriteBillboard(textures.pitIdle, 2.45);
     pitcher.position.set(0.85, 1.22, -5.2);
     scene.add(pitcher);
@@ -1906,6 +1964,211 @@ button, .card { font-family: inherit; }
     }
   }
 
+  /* Stormy and Emma run the fence. Flavor only: no score, no hit changes. */
+  var YARD_SEQ = [0, 1, 2, 1];
+  var YARD_FPS = 11;
+  var YARD_Z = -14.62;
+  var yardRunners = [];
+
+  function mirrorMap(tex) {
+    var src = tex.image;
+    var c = document.createElement("canvas");
+    c.width = src.width;
+    c.height = src.height;
+    var g = c.getContext("2d");
+    g.translate(c.width, 0);
+    g.scale(-1, 1);
+    g.drawImage(src, 0, 0);
+    var out = new THREE.CanvasTexture(c);
+    out.colorSpace = THREE.SRGBColorSpace;
+    out.generateMipmaps = false;
+    out.minFilter = THREE.LinearFilter;
+    out.magFilter = THREE.LinearFilter;
+    out.needsUpdate = true;
+    return out;
+  }
+
+  function yardFeetY(h, pad) {
+    return 0.06 + h * (0.5 - pad);
+  }
+
+  function yardBusy() {
+    for (var i = 0; i < yardRunners.length; i++) {
+      if (yardRunners[i].mode !== "off") return true;
+    }
+    return false;
+  }
+
+  function clearYardRuns() {
+    for (var i = 0; i < yardRunners.length; i++) {
+      yardRunners[i].mode = "off";
+      if (yardRunners[i].sprite) yardRunners[i].sprite.visible = false;
+    }
+  }
+
+  function paintYardSprite(r, map, h, y) {
+    if (r.sprite.material.map !== map) {
+      r.sprite.material.map = map;
+      r.sprite.material.needsUpdate = true;
+    }
+    var img = map.image;
+    var aspect = img.width / Math.max(1, img.height);
+    r.sprite.scale.set(h * aspect, h, 1);
+    r.sprite.position.set(r.x, y, YARD_Z);
+    r.sprite.visible = true;
+  }
+
+  function showYardRun(r) {
+    var step = ((r.frameT * YARD_FPS) | 0) % 4;
+    var fi = YARD_SEQ[step];
+    var map = r.dir < 0 ? r.flips[fi] : r.frames[fi];
+    var h = r.spec.h;
+    var y = yardFeetY(h, r.spec.pad) + Math.sin(r.frameT * 22) * 0.03;
+    paintYardSprite(r, map, h, y);
+  }
+
+  function showYardPeek(r) {
+    var h = r.spec.id === "emma" ? 3.15 : 2.86;
+    var y = 0.12 + h * 0.5 + Math.sin(state.real * 2.4) * 0.03;
+    paintYardSprite(r, r.peek, h, y);
+  }
+
+  function startYardRun(index, dir, x, speed, stopX) {
+    var r = yardRunners[index];
+    if (!r) return;
+    r.mode = "run";
+    r.dir = dir < 0 ? -1 : 1;
+    r.x = x;
+    r.speed = speed;
+    r.stopX = stopX == null ? (r.dir > 0 ? 12.2 : -12.2) : stopX;
+    r.frameT = Math.random() * 0.2;
+    r.dustT = 0.05;
+    showYardRun(r);
+    if (Math.random() < 0.55) sfxHappyBark(r.spec.id);
+  }
+
+  function startYardDash(both) {
+    if (yardBusy()) return;
+    var dir = Math.random() < 0.5 ? 1 : -1;
+    var lead = Math.random() < 0.5 ? 0 : 1;
+    var x0 = dir > 0 ? -11 : 11;
+    startYardRun(lead, dir, x0, 6.3, null);
+    if (both) startYardRun(1 - lead, dir, x0 - dir * 2.5, 7.05, null);
+  }
+
+  function startYardPeek() {
+    if (yardBusy()) return;
+    var r = yardRunners[Math.random() < 0.5 ? 0 : 1];
+    r.mode = "peek";
+    r.t = 0;
+    r.dur = 1.65;
+    // Left fence, or the gap just left of Biscuit. Never on his sprite.
+    r.x = Math.random() < 0.55 ? -5.3 + Math.random() * 1.5 : 0.15 + Math.random() * 0.7;
+    showYardPeek(r);
+    if (Math.random() < 0.45) sfxHappyBark(r.spec.id);
+  }
+
+  function startYardChase(landX) {
+    if (yardBusy()) return;
+    var i = Math.random() < 0.5 ? 0 : 1;
+    var start = landX >= 0 ? -11 : 11;
+    var dir = landX >= start ? 1 : -1;
+    var stop = clamp(landX, -7.5, 7.5);
+    startYardRun(i, dir, start, 6.6, stop);
+  }
+
+  function noteYardPitch(biscuit, hr, landX) {
+    if (state.yardHold) return;
+    if (!state.yardNext) state.yardNext = 2 + ((Math.random() * 3) | 0);
+    state.yardCount += 1;
+    if (biscuit) return;
+    if (state.yardCount < state.yardNext) {
+      if (hr && Math.random() < 0.7) startYardChase(landX || 0);
+      return;
+    }
+    state.yardCount = 0;
+    state.yardNext = 2 + ((Math.random() * 3) | 0);
+    if (Math.random() < 0.28) startYardPeek();
+    else startYardDash(Math.random() < 0.36);
+  }
+
+  function poseYardHold() {
+    var mode = state.yardHold;
+    if (!mode || !yardRunners.length) return;
+    for (var i = 0; i < yardRunners.length; i++) {
+      yardRunners[i].mode = "off";
+      yardRunners[i].sprite.visible = false;
+    }
+    function runHold(i, x) {
+      var r = yardRunners[i];
+      r.mode = "run";
+      r.dir = 1;
+      r.x = x;
+      r.frameT = state.real;
+      showYardRun(r);
+    }
+    var wide = camera.aspect >= 1;
+    var pin = typeof state.yardHoldX === "number" ? state.yardHoldX : null;
+    if (mode === "stormy") runHold(0, pin != null ? pin : (wide ? -5.55 : -4.6));
+    else if (mode === "emma") runHold(1, pin != null ? pin : (wide ? 5.15 : -4.4));
+    else if (mode === "both") {
+      runHold(0, wide ? -6.1 : -5.2);
+      runHold(1, wide ? -3.6 : -2.6);
+    } else if (mode === "peek-stormy") {
+      yardRunners[0].mode = "peek";
+      yardRunners[0].x = pin != null ? pin : (wide ? -5.7 : -4.2);
+      showYardPeek(yardRunners[0]);
+    } else if (mode === "peek-emma") {
+      yardRunners[1].mode = "peek";
+      yardRunners[1].x = pin != null ? pin : (wide ? 5.25 : -4.8);
+      showYardPeek(yardRunners[1]);
+    }
+  }
+
+  function updateYard(realDt) {
+    if (!yardRunners.length) return;
+    if (state.yardHold) {
+      poseYardHold();
+      return;
+    }
+    var blocked = state.phase === "pitch" && !state.swung;
+    for (var i = 0; i < yardRunners.length; i++) {
+      var r = yardRunners[i];
+      if (r.mode === "off") {
+        r.sprite.visible = false;
+        continue;
+      }
+      if (blocked) {
+        r.sprite.visible = false;
+        continue;
+      }
+      if (r.mode === "peek") {
+        r.t += realDt;
+        if (r.t > r.dur) {
+          r.mode = "off";
+          r.sprite.visible = false;
+          continue;
+        }
+        showYardPeek(r);
+        continue;
+      }
+      r.frameT += realDt;
+      r.x += r.dir * r.speed * realDt;
+      r.dustT -= realDt;
+      var done = r.dir > 0 ? r.x >= r.stopX : r.x <= r.stopX;
+      if (done) {
+        r.mode = "off";
+        r.sprite.visible = false;
+        continue;
+      }
+      showYardRun(r);
+      if (r.dustT <= 0) {
+        r.dustT = 0.16;
+        puff(new THREE.Vector3(r.x, 0.12, YARD_Z + 0.05), 3, "#c9a36e", 1.05, 0.16);
+      }
+    }
+  }
+
   function setPitcher(which) {
     var tex = which === "wind" ? textures.pitWind : which === "rel" ? textures.pitRel : textures.pitIdle;
     resizeSprite(pitcher, tex, 2.45);
@@ -1943,6 +2206,10 @@ button, .card { font-family: inherit; }
     swingResult: null,
     batHold: -1,
     batFrame: 0,
+    yardHold: "",
+    yardHoldX: null,
+    yardCount: 0,
+    yardNext: 3,
     real: 0
   };
 
@@ -1972,6 +2239,7 @@ button, .card { font-family: inherit; }
     if (skyNight) skyNight.material.opacity = 0;
     state.dogTimer = 0;
     ballSprite.material.map = textures.ball;
+    if (!state.yardHold) clearYardRuns();
   }
 
   function beginMatch(list) {
@@ -2172,6 +2440,7 @@ button, .card { font-family: inherit; }
       var line = result.kind === "foul" ? pick(FOUL_LINES) : pick(MISS_LINES);
       showCallout(line, "Keep swinging!", true);
       startFoulFlight(result.kind === "foul");
+      noteYardPitch(false, false, 0);
       return;
     }
 
@@ -2269,6 +2538,7 @@ button, .card { font-family: inherit; }
     ballGlow.material.color.set("#ffd34d");
     if (state.swing >= 3) ballSprite.material.map = textures.ballScuff;
     paintHud();
+    noteYardPitch(!!(bonus && bonus.type === "dog"), isHr, end.x);
   }
 
   function landingPoint(feet, hr) {
@@ -2597,6 +2867,7 @@ button, .card { font-family: inherit; }
           el("hud-combo").classList.remove("show");
           showCallout(pick(MISS_LINES), "The next one is yours", true);
           startFoulFlight(false);
+          noteYardPitch(false, false, 0);
         }
       }
       el("needle").style.left = (state.u * 100) + "%";
@@ -2668,6 +2939,7 @@ button, .card { font-family: inherit; }
       dog.position.y = 1.72 + Math.sin(state.real * 1.7) * 0.04;
       dog.position.x = 3.45;
     }
+    updateYard(realDt);
     for (var w = 0; w < windows.length; w++) {
       var win = windows[w];
       if (!win.broken) {
@@ -2768,6 +3040,14 @@ button, .card { font-family: inherit; }
     add("tree", "art/treehouse_tree.png", 1024);
     add("dogIdle", "art/dog_idle_fence.png", 800);
     add("dogExcited", "art/dog_excited.png", 700);
+    add("stormy1", "art/dog_stormy_run_1.png", 720);
+    add("stormy2", "art/dog_stormy_run_2.png", 720);
+    add("stormy3", "art/dog_stormy_run_3.png", 720);
+    add("stormyPeek", "art/dog_stormy_peek.png", 1024);
+    add("emma1", "art/dog_emma_run_1.png", 720);
+    add("emma2", "art/dog_emma_run_2.png", 720);
+    add("emma3", "art/dog_emma_run_3.png", 720);
+    add("emmaPeek", "art/dog_emma_peek.png", 1024);
     add("pitIdle", "art/pitcher_idle.png", 640);
     add("pitWind", "art/pitcher_windup.png", 700);
     add("pitRel", "art/pitcher_release.png", 700);
@@ -2801,6 +3081,17 @@ button, .card { font-family: inherit; }
   };
   api.clearBatFrame = function () {
     state.batHold = -1;
+  };
+  api.showYard = function (mode, x) {
+    state.yardHold = mode || "stormy";
+    state.yardHoldX = typeof x === "number" ? x : null;
+    poseYardHold();
+    if (renderer) renderOutlined();
+  };
+  api.clearYard = function () {
+    state.yardHold = "";
+    state.yardHoldX = null;
+    clearYardRuns();
   };
   api.skip = function () {
     if (state.phase === "gap") state.gap = 0;
