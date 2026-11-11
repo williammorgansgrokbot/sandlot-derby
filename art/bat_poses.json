@@ -19,7 +19,8 @@
       "angle": 2.0094,
       "img_w": 612,
       "img_h": 900,
-      "cleared": 27638
+      "cleared": 27638,
+      "swung": -0.42
     },
     "lou": {
       "u": 0.6037,
@@ -30,7 +31,8 @@
       "angle": 2.6961,
       "img_w": 624,
       "img_h": 900,
-      "cleared": 31305
+      "cleared": 31305,
+      "swung": 3.5616
     },
     "tank": {
       "u": 0.6846,
@@ -41,7 +43,8 @@
       "angle": 2.7337,
       "img_w": 624,
       "img_h": 900,
-      "cleared": 31859
+      "cleared": 31859,
+      "swung": -0.42
     },
     "ricky": {
       "u": 0.3801,
@@ -52,7 +55,8 @@
       "angle": 2.1916,
       "img_w": 695,
       "img_h": 900,
-      "cleared": 29355
+      "cleared": 29355,
+      "swung": -0.42
     },
     "milo": {
       "u": 0.2967,
@@ -63,7 +67,8 @@
       "angle": 2.012,
       "img_w": 614,
       "img_h": 900,
-      "cleared": 27829
+      "cleared": 27829,
+      "swung": -0.42
     },
     "pearl": {
       "u": 0.78,
@@ -74,7 +79,8 @@
       "angle": 2.6127,
       "img_w": 622,
       "img_h": 861,
-      "cleared": 15565
+      "cleared": 15565,
+      "swung": -0.42
     },
     "walt": {
       "u": 0.3367,
@@ -85,7 +91,8 @@
       "angle": 2.1526,
       "img_w": 676,
       "img_h": 900,
-      "cleared": 26618
+      "cleared": 26618,
+      "swung": -0.42
     },
     "peewee": {
       "u": 0.3225,
@@ -96,7 +103,8 @@
       "angle": 2.3642,
       "img_w": 727,
       "img_h": 900,
-      "cleared": 26591
+      "cleared": 26591,
+      "swung": -0.42
     }
   }
 }
